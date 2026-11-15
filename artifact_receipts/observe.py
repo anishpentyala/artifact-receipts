@@ -308,8 +308,26 @@ def observe_packages(packages, preexisting_names, wheel_info,
     )
     resident_set = set(selected_resident)
 
+    # An originless resolution is evidence, including after removal or a
+    # later file-backed import under the same name. Do not let the filename
+    # projection erase it and turn unsupported/mixed evidence into a match.
+    originless = ({name for name, origins in recorder.origins.items()
+                   if any(not origin for origin in origins)} if recorder else set())
+    for name in sorted(originless):
+        mixed = len(recorder.origins[name]) > 1
+        observations.append(ModuleObservation(
+            name=name, origin=None, loader=None,
+            verdict=OBSERVATION_GAP if mixed else UNSUPPORTED,
+            reason=("import system recorded an originless resolution and "
+                    "another distinct origin during the run" if mixed else
+                    "import system resolved this module without a file origin"),
+            preexisting=name in preexisting_names,
+            imported_not_resident=name not in resident_set))
+
     # 1. Resident modules.
     for name in selected_resident:
+        if name in originless:
+            continue
         mod = sys.modules[name]
         spec = getattr(mod, "__spec__", None)
         origin = getattr(mod, "__file__", None)
@@ -358,7 +376,7 @@ def observe_packages(packages, preexisting_names, wheel_info,
         observations.append(obs)
 
     # 2. Resolved during the run but no longer resident.
-    for name in sorted(set(recorded) - resident_set):
+    for name in sorted(set(recorded) - resident_set - originless):
         files = sorted(recorded[name])
         origin = files[-1]
         if len(files) > 1:
