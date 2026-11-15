@@ -37,12 +37,10 @@ def _member_path_unsafe(name: str) -> bool:
     drive = re.match(r"^[A-Za-z]:", name)
     if drive:
         return True
-    parts = name.split("/")
-    if any(p in ("..", "") for p in parts[:-1]):  # '..' anywhere, '' mid-path
-        return True
-    if parts[-1] in ("..", ""):
-        return True
-    return False
+    # One trailing slash denotes a directory, not an empty path component.
+    # All other empty, dot and traversal components remain ambiguous/unsafe.
+    path = name[:-1] if name.endswith("/") else name
+    return any(part in (".", "..", "") for part in path.split("/"))
 
 
 def _b64_sha256(digest: bytes) -> str:
@@ -129,7 +127,10 @@ def load_wheel(path: str) -> WheelInfo:
             m.group("name").replace("-", "_"),
             m.group("version"),
         )
-        if dist_info != expected_di:
+        di_name, separator, di_version = dist_info[:-len(".dist-info")].rpartition("-")
+        if (not separator or di_version != m.group("version") or
+                re.sub(r"[-_.]+", "-", di_name).lower() !=
+                re.sub(r"[-_.]+", "-", m.group("name")).lower()):
             raise WheelError(
                 "dist-info dir %r conflicts with filename-derived %r"
                 % (dist_info, expected_di)
@@ -148,8 +149,8 @@ def load_wheel(path: str) -> WheelInfo:
                 break  # end of headers
         if meta_name is None or meta_version is None:
             raise WheelError("METADATA lacks Name/Version headers")
-        if meta_name.replace("-", "_").lower() != \
-                m.group("name").replace("-", "_").lower():
+        if re.sub(r"[-_.]+", "-", meta_name).lower() != \
+                re.sub(r"[-_.]+", "-", m.group("name")).lower():
             raise WheelError(
                 "METADATA Name %r conflicts with filename name %r"
                 % (meta_name, m.group("name"))
