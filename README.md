@@ -115,7 +115,7 @@ internal error (3) or usage error (4).
 
 ## Controls
 
-`tests/test_controls.py` runs the negative controls in clean subprocesses: correct install, checkout shadowing,
+`tests/test_controls.py` and `tests/test_review_controls.py` run negative controls in clean subprocesses: correct install, checkout shadowing,
 same-path changed bytes, submodule-only shadowing, nothing imported,
 namespace package, failing pytest with matching and mismatching provenance,
 duplicate zip members, path traversal, malformed RECORD, report-write
