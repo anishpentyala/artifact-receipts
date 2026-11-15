@@ -1,0 +1,4 @@
+include LICENSE README.md VALIDATION.md CONTRIBUTING.md
+recursive-include tests *.py
+recursive-include demo *.sh
+recursive-include ci *.py
